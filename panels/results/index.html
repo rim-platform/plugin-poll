@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Poll</title>
+    <style>
+      /* RIM sends its design tokens as theme.changed; these are the fallbacks. */
+      :root {
+        --color-rim-void: #0d0d0f;
+        --color-rim-panel: #141418;
+        --color-rim-panel-soft: #1a1a20;
+        --color-rim-line: #2a2a33;
+        --color-rim-accent: #8b8bff;
+        --color-rim-warm: #f0b35a;
+        --color-rim-danger: #f06a6a;
+        --color-rim-text: #e0e0e6;
+        --color-rim-text-muted: #a0a0b0;
+        --color-rim-text-faint: #6a6a78;
+        --color-rim-success: #34d399;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 13px;
+        background: var(--color-rim-void);
+        color: var(--color-rim-text);
+      }
+      header {
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-start;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--color-rim-line);
+        background: var(--color-rim-panel);
+      }
+      h1 {
+        flex: 1;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+      .status {
+        flex: none;
+        padding: 0 0.35rem;
+        border: 1px solid var(--color-rim-line);
+        border-radius: 4px;
+        color: var(--color-rim-text-muted);
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .status.open {
+        border-color: var(--color-rim-success);
+        color: var(--color-rim-success);
+      }
+      .banner {
+        margin: 0.75rem;
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--color-rim-line);
+        border-left: 3px solid var(--color-rim-warm);
+        border-radius: 6px;
+        background: var(--color-rim-panel);
+        line-height: 1.4;
+      }
+      ol {
+        margin: 0;
+        padding: 0.4rem 0;
+        list-style: none;
+      }
+      li {
+        padding: 0.35rem 0.75rem;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: space-between;
+        line-height: 1.35;
+      }
+      .count {
+        flex: none;
+        color: var(--color-rim-text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .track {
+        height: 6px;
+        margin-top: 0.3rem;
+        border-radius: 3px;
+        background: var(--color-rim-panel-soft);
+        overflow: hidden;
+      }
+      .bar {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--color-rim-accent);
+      }
+      .empty {
+        padding: 1.5rem 0.75rem;
+        text-align: center;
+        color: var(--color-rim-text-muted);
+        line-height: 1.4;
+      }
+      footer {
+        padding: 0.5rem 0.75rem;
+        color: var(--color-rim-text-faint);
+        font-size: 11px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <header id="header" hidden>
+      <h1 id="question"></h1>
+      <span id="status" class="status"></span>
+    </header>
+    <div id="notice" class="banner" role="status" hidden></div>
+    <ol id="options"></ol>
+    <div id="empty" class="empty">Waiting for the plugin…</div>
+    <footer id="footer" hidden></footer>
+    <script src="app.js"></script>
+  </body>
+</html>
