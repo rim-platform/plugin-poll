@@ -31,6 +31,8 @@ the version in `rim-plugin.json` and in `package.json`.
 
 ### Fixed
 
+- The panel showed the new poll form, the poll's buttons and **Close poll** all at once, even
+  with no poll open.
 - Starting a poll and voting were impossible: the command palette does not list commands that
   take arguments, and the panel had no controls.
 - The poll message no longer tells people to use a `/vote` command the app does not have; it
