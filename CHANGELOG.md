@@ -19,6 +19,25 @@ the version in `rim-plugin.json` and in `package.json`.
 
 ## [Unreleased]
 
+### Added
+
+- The **Poll** panel runs the poll: a form to start one, a **Vote** button on each option with
+  your vote marked, and **Refresh**, **Close poll**, **Forget** and **New poll**. It follows the
+  conversation you have open.
+- Votes typed as `/vote <number>` or `/vote <option>` in the conversation count.
+- Optional permissions **Read Encrypted Messages** (`chat.read.encrypted`) and **Send
+  Encrypted Messages** (`chat.write.encrypted`), so polls work in encrypted DMs and groups when
+  you allow them. Installs ask again for the new permissions.
+
+### Fixed
+
+- Starting a poll and voting were impossible: the command palette does not list commands that
+  take arguments, and the panel had no controls.
+- The poll message no longer tells people to use a `/vote` command the app does not have; it
+  says to vote in the Poll panel or reply `/vote <number>`, which now counts.
+- A vote in a poll this device remembers goes through while the conversation is still being
+  stored on the device.
+
 ## [0.0.1] - 2026-10-16
 
 ### Added

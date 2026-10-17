@@ -9,6 +9,7 @@ import {
   createPlugin,
   ENCRYPTED_TEXT,
   explainChatError,
+  NOT_CACHED_TEXT,
   NOT_FOUND_TEXT,
   PANEL_ID,
   storageKey,
@@ -38,10 +39,11 @@ interface Message {
 }
 
 /** A conversation store answering rim.chat.* as the app's message service does. */
-function fakeChat() {
+function fakeChat(granted: readonly string[]) {
   const conversations = new Map<string, Message[]>();
   const threads = new Set<string>(["thread-1"]);
   const encrypted = new Set<string>();
+
   const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
   let seq = 0;
 
@@ -70,8 +72,8 @@ function fakeChat() {
   function handle(method: string, params: Record<string, unknown>): unknown {
     calls.push({ method, params });
     const conversationId = String(params.conversationId);
-    if (encrypted.has(conversationId)) {
-      const capability = method.endsWith("post_message") ? "chat.write" : "chat.read";
+    const capability = method.endsWith("post_message") ? "chat.write" : "chat.read";
+    if (encrypted.has(conversationId) && !granted.includes(`${capability}.encrypted`)) {
       throw {
         code: ErrorCode.CAPABILITY_DENIED,
         message: `capability denied: ${capability}.encrypted`,
@@ -115,7 +117,8 @@ interface StartOptions {
 }
 
 function start(options: StartOptions = {}) {
-  const chat = fakeChat();
+  const granted = options.grantedCapabilities ?? ["ui.panel", "chat.read", "chat.write"];
+  const chat = fakeChat(granted);
   const store = new Map<string, unknown>();
   const panels: PanelState[] = [];
   const host = startTestHost(
@@ -123,7 +126,7 @@ function start(options: StartOptions = {}) {
     {
       transport: "port",
       manifestPath: MANIFEST,
-      grantedCapabilities: options.grantedCapabilities ?? ["ui.panel", "chat.read", "chat.write"],
+      grantedCapabilities: granted,
       ...(options.principal === null ? { principal: null } : {}),
       onRequest(method, params) {
         const p = params as Record<string, unknown>;
@@ -169,7 +172,13 @@ describe("poll plugin", () => {
     expect(() =>
       validateManifest(manifest, { forbiddenOrigins: ["https://rim.example"] }),
     ).not.toThrow();
-    expect(manifest.capabilities).toEqual(["ui.panel", "chat.read", "chat.write"]);
+    expect(manifest.capabilities).toEqual([
+      "ui.panel",
+      "chat.read",
+      "chat.write",
+      "chat.read.encrypted",
+      "chat.write.encrypted",
+    ]);
     for (const command of manifest.commands) {
       expect(command.required_context).toEqual(["conversation"]);
       const names = (command.arguments ?? []).map((a: { name: string }) => a.name);
@@ -186,7 +195,10 @@ describe("poll plugin", () => {
     const answer = await t.run("poll", LUNCH);
     expect(answer.result?.message).toBe("Poll posted: Lunch?");
     expect(t.chat.messages().map((m) => [m.text, m.threadId])).toEqual([
-      ["📊 Poll: Lunch?\n1. Pizza\n2. Sushi\n3. Tacos\nVote with /vote <number>", null],
+      [
+        "📊 Poll: Lunch?\n1. Pizza\n2. Sushi\n3. Tacos\nVote in the Poll panel, or reply /vote <number>",
+        null,
+      ],
     ]);
     expect(t.stored()).toEqual({
       conversationId: CONVERSATION,
@@ -196,13 +208,21 @@ describe("poll plugin", () => {
       options: ["Pizza", "Sushi", "Tacos"],
       status: "open",
       createdAt: new Date(T0).toISOString(),
+      startedHere: true,
     });
     expect(answer.result?.payload).toMatchObject({ question: "Lunch?", status: "open", voters: 0 });
     expect(t.panel()).toMatchObject({
       signedIn: true,
       inConversation: true,
       notice: null,
-      poll: { question: "Lunch?", status: "open", voters: 0, counted: true },
+      poll: {
+        question: "Lunch?",
+        status: "open",
+        voters: 0,
+        counted: true,
+        myVote: null,
+        mine: true,
+      },
     });
     await t.host.shutdown();
   });
@@ -436,6 +456,65 @@ describe("poll plugin", () => {
     await denied.host.shutdown();
   });
 
+  it("runs a poll in an encrypted conversation once the encrypted grants are allowed", async () => {
+    const t = start({
+      grantedCapabilities: [
+        "ui.panel",
+        "chat.read",
+        "chat.write",
+        "chat.read.encrypted",
+        "chat.write.encrypted",
+      ],
+    });
+    await t.host.handshake();
+    t.chat.encrypted.add(CONVERSATION);
+    expect((await t.run("poll", LUNCH)).result?.message).toBe("Poll posted: Lunch?");
+    t.chat.add(ADA, "/vote 2");
+    expect((await t.run("poll.results")).result?.message).toBe(
+      "Lunch?: Pizza 0, Sushi 1, Tacos 0 (1 voter)",
+    );
+    await t.host.shutdown();
+  });
+
+  it("marks the person's own vote, and offers closing only to whoever started the poll", async () => {
+    const t = start();
+    await t.host.handshake();
+    await t.run("poll", LUNCH);
+    expect(t.panel().poll).toMatchObject({ myVote: null, mine: true });
+    await t.run("vote", { choice: "3" });
+    expect(t.panel().poll).toMatchObject({ myVote: 3, mine: true });
+
+    t.chat.add(ADA, formatPoll({ question: "Dinner?", options: ["Soup", "Salad"] }), {
+      conversationId: "conv-2",
+    });
+    await t.run("poll.results", {}, false, "conv-2");
+    expect(t.panel().poll).toMatchObject({ question: "Dinner?", myVote: null, mine: false });
+    await t.host.shutdown();
+  });
+
+  it("counts votes people type as /vote, by number or by text", async () => {
+    const t = start();
+    await t.host.handshake();
+    await t.run("poll", LUNCH);
+    t.chat.add(ADA, "/vote 1");
+    t.chat.add(BOB, "/vote sushi");
+    t.chat.add(EVE, "/vote 7");
+    expect((await t.run("poll.results")).result?.message).toBe(
+      "Lunch?: Pizza 1, Sushi 1, Tacos 0 (2 voters)",
+    );
+    await t.host.shutdown();
+  });
+
+  it("shows the conversation it was asked about, even one it cannot read", async () => {
+    const t = start();
+    await t.host.handshake();
+    await t.run("poll", LUNCH);
+    t.chat.encrypted.add("secret");
+    expect((await t.run("poll.results", {}, false, "secret")).error?.message).toBe(ENCRYPTED_TEXT);
+    expect(t.panel()).toMatchObject({ inConversation: true, poll: null, notice: ENCRYPTED_TEXT });
+    await t.host.shutdown();
+  });
+
   it("needs someone signed in", async () => {
     const t = start({ principal: null });
     await t.host.handshake();
@@ -471,11 +550,13 @@ describe("explainChatError", () => {
     expect(refusal(ErrorCode.INTERNAL_ERROR, "no cache", { reason: "noCache" }).message).toBe(
       "This browser keeps no messages, so Poll cannot read or post here. Set it up as a linked device, or use the desktop app.",
     );
-    expect(refusal(ErrorCode.INTERNAL_ERROR, "later", { reason: "notCached" }).message).toBe(
-      "This conversation is not fully stored on this device yet. Try again shortly.",
-    );
+    // The reason travels on, so a vote in a remembered poll goes through while the history is stored.
+    expect(refusal(ErrorCode.INTERNAL_ERROR, "later", { reason: "notCached" })).toMatchObject({
+      message: NOT_CACHED_TEXT,
+      data: { reason: "notCached" },
+    });
     expect(refusal(ErrorCode.INTERNAL_ERROR, "no", { reason: "noEncryption" }).message).toBe(
-      ENCRYPTED_TEXT,
+      "This device cannot post in encrypted conversations. Use the desktop app, or a browser set up as a linked device.",
     );
     expect(refusal(ErrorCode.RATE_LIMITED, "slow down").message).toBe(
       "Poll made too many chat calls this minute. Try again in a minute.",

@@ -1,8 +1,8 @@
 // The Poll plugin: a WebSandboxed plugin that posts a poll in the open
 // conversation, posts votes as messages, and counts them from the
 // conversation's messages, so everyone with the plugin sees the same tally.
-// It remembers each conversation's poll in the host's store and shows the poll
-// of the conversation it last ran in in its panel.
+// It remembers each conversation's poll in the host's store and shows the open
+// conversation's poll in its panel, which runs its commands.
 
 import {
   definePlugin,
@@ -59,6 +59,8 @@ export interface StoredPoll {
   status: "open" | "closed";
   /** RFC 3339: when the poll was posted, or its message's time when it was found. */
   createdAt: string;
+  /** This device posted the poll. */
+  startedHere?: boolean;
 }
 
 /** The panel's poll. */
@@ -69,6 +71,10 @@ export interface PanelPoll {
   voters: number;
   /** The votes are counted; false while the poll message is not on this device. */
   counted: boolean;
+  /** The number of the option the signed-in person last voted for, or `null`. */
+  myVote: number | null;
+  /** The signed-in person started the poll, so they may close it. */
+  mine: boolean;
 }
 
 /** What the panel shows; the plugin publishes it whole with `rim.ui.update_panel`. */
@@ -95,7 +101,9 @@ export interface PluginOptions {
 }
 
 export const ENCRYPTED_TEXT =
-  "This conversation is end-to-end encrypted. Poll works in plaintext conversations only: it does not ask to read or post in encrypted DMs and groups.";
+  "This conversation is end-to-end encrypted. To run polls here, allow Poll to read and post in encrypted conversations in Settings → Plugins.";
+export const NOT_CACHED_TEXT =
+  "This conversation is not fully stored on this device yet. Try again shortly.";
 export const NOT_FOUND_TEXT =
   "The poll message is not on this device: it may not be stored here yet, or it was deleted. Try again shortly, or forget the poll with Poll: Clear.";
 
@@ -103,18 +111,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** The `reason` a refusal carries, or `undefined`. */
+function reasonOf(error: unknown): unknown {
+  return error instanceof PluginError && isRecord(error.data) ? error.data.reason : undefined;
+}
+
 /** A host's refusal of a chat call, as a message for the person. */
 export function explainChatError(error: unknown): unknown {
   if (!(error instanceof HostRequestError)) return error;
   const reason = isRecord(error.data) ? error.data.reason : undefined;
   switch (error.code) {
-    case ErrorCode.CAPABILITY_DENIED:
+    case ErrorCode.CAPABILITY_DENIED: {
+      const encrypted = /\.encrypted\b/u.test(error.message);
       return new PluginError(
-        /\.encrypted\b/u.test(error.message)
+        encrypted
           ? ENCRYPTED_TEXT
           : "Poll needs the permissions to read and post in your conversations. Allow them in Settings → Plugins.",
-        { code: ErrorCode.CAPABILITY_DENIED },
+        { code: ErrorCode.CAPABILITY_DENIED, data: { reason: encrypted ? "encrypted" : "denied" } },
       );
+    }
     case ErrorCode.RATE_LIMITED:
       return new PluginError("Poll made too many chat calls this minute. Try again in a minute.", {
         code: ErrorCode.RATE_LIMITED,
@@ -123,14 +138,18 @@ export function explainChatError(error: unknown): unknown {
       if (reason === "noCache") {
         return new PluginError(
           "This browser keeps no messages, so Poll cannot read or post here. Set it up as a linked device, or use the desktop app.",
+          { data: { reason } },
         );
       }
       if (reason === "notCached") {
+        return new PluginError(NOT_CACHED_TEXT, { data: { reason } });
+      }
+      if (reason === "noEncryption") {
         return new PluginError(
-          "This conversation is not fully stored on this device yet. Try again shortly.",
+          "This device cannot post in encrypted conversations. Use the desktop app, or a browser set up as a linked device.",
+          { data: { reason } },
         );
       }
-      if (reason === "noEncryption") return new PluginError(ENCRYPTED_TEXT);
       break;
   }
   const detail = error.message.replace(/^\S+ failed \(-?\d+\): /u, "");
@@ -163,7 +182,7 @@ export function storageKey(conversationId: string): string {
 
 function readStoredPoll(value: unknown, conversationId: string): StoredPoll | null {
   if (!isRecord(value) || value.conversationId !== conversationId) return null;
-  const { messageId, threadId, question, options, status, createdAt } = value;
+  const { messageId, threadId, question, options, status, createdAt, startedHere } = value;
   if (
     typeof messageId !== "string" ||
     (threadId !== null && typeof threadId !== "string") ||
@@ -175,7 +194,16 @@ function readStoredPoll(value: unknown, conversationId: string): StoredPoll | nu
   ) {
     return null;
   }
-  return { conversationId, messageId, threadId, question, options, status, createdAt };
+  return {
+    conversationId,
+    messageId,
+    threadId,
+    question,
+    options,
+    status,
+    createdAt,
+    ...(startedHere === true ? { startedHere } : {}),
+  };
 }
 
 /** The conversation the host says the command runs in, and the thread when there is one. */
@@ -258,6 +286,8 @@ export function createPlugin(options: PluginOptions = {}) {
     tally: Tally,
     notice: string | null = null,
   ): Promise<void> {
+    const me = host.principal?.principalId;
+    const ballot = me === undefined ? undefined : tally.ballots.get(me);
     await publish(host, {
       inConversation: true,
       notice,
@@ -267,6 +297,11 @@ export function createPlugin(options: PluginOptions = {}) {
         options: [...tally.options],
         voters: tally.voters,
         counted: tally.found,
+        myVote: ballot === undefined ? null : ballot + 1,
+        // Until the poll message is counted, the device that posted it knows who started it.
+        mine: tally.author
+          ? me !== undefined && tally.author.principalId === me
+          : poll.startedHere === true,
       },
     });
   }
@@ -419,6 +454,7 @@ export function createPlugin(options: PluginOptions = {}) {
       options,
       status: "open",
       createdAt: new Date(now()).toISOString(),
+      startedHere: true,
     };
     await save(host, poll);
     const tally = noVotes(poll);
@@ -436,7 +472,12 @@ export function createPlugin(options: PluginOptions = {}) {
       await publish(host, { inConversation: true, poll: null, notice: null });
       throw new PluginError("There is no open poll in this conversation. Start one with /poll.");
     }
-    const counted = await count(host, resolved.poll, resolved.messages);
+    // A poll this device remembers takes a vote while its history is still being stored here.
+    const counted = await count(host, resolved.poll, resolved.messages).catch((error: unknown) => {
+      if (reasonOf(error) !== "notCached" || resolved.poll === null) throw error;
+      const poll = resolved.poll;
+      return { poll, tally: { ...noVotes(poll), found: false }, messages: [] };
+    });
     const { poll, tally } = counted;
     if (poll.status === "closed") {
       await showPoll(host, poll, tally);
@@ -476,18 +517,32 @@ export function createPlugin(options: PluginOptions = {}) {
     const { conversationId } = commandContext(args);
     signedIn(context);
     current = conversationId;
-    const resolved = await resolve(host, conversationId);
-    if (!resolved.poll) {
-      await publish(host, { inConversation: true, poll: null, notice: null });
-      return { payload: null, message: "There is no poll in this conversation." };
+    let known: StoredPoll | null = null;
+    try {
+      const resolved = await resolve(host, conversationId);
+      known = resolved.poll;
+      if (!resolved.poll) {
+        await publish(host, { inConversation: true, poll: null, notice: null });
+        return { payload: null, message: "There is no poll in this conversation." };
+      }
+      const { poll, tally } = await count(host, resolved.poll, resolved.messages);
+      if (!tally.found) {
+        await showPoll(host, poll, tally, NOT_FOUND_TEXT);
+        throw new PluginError(NOT_FOUND_TEXT);
+      }
+      await showPoll(host, poll, tally);
+      return { payload: payloadOf(poll, tally), message: summarize(poll.question, tally) };
+    } catch (error) {
+      // The panel shows this conversation from now on, even when it cannot be read.
+      const explained = explainChatError(error);
+      const notice = explained instanceof Error ? explained.message : String(explained);
+      if (known && reasonOf(explained) === "notCached") {
+        await showPoll(host, known, { ...noVotes(known), found: false }, notice);
+      } else if (!(explained instanceof PluginError && explained.message === NOT_FOUND_TEXT)) {
+        await publish(host, { inConversation: true, poll: null, notice });
+      }
+      throw explained;
     }
-    const { poll, tally } = await count(host, resolved.poll, resolved.messages);
-    if (!tally.found) {
-      await showPoll(host, poll, tally, NOT_FOUND_TEXT);
-      throw new PluginError(NOT_FOUND_TEXT);
-    }
-    await showPoll(host, poll, tally);
-    return { payload: payloadOf(poll, tally), message: summarize(poll.question, tally) };
   }
 
   async function close(context: CommandContext): Promise<CommandOutput> {

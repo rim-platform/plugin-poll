@@ -90,9 +90,13 @@ describe("matchChoice", () => {
 describe("the messages", () => {
   it("formats the poll so it reads in plain text, and reads it back", () => {
     expect(formatPoll(POLL)).toBe(
-      "📊 Poll: Lunch?\n1. Pizza\n2. Sushi\n3. Tacos\nVote with /vote <number>",
+      "📊 Poll: Lunch?\n1. Pizza\n2. Sushi\n3. Tacos\nVote in the Poll panel, or reply /vote <number>",
     );
     expect(parsePollMessage(formatPoll(POLL))).toEqual(POLL);
+    // Polls posted before the footer changed still count.
+    expect(
+      parsePollMessage("📊 Poll: Lunch?\n1. Pizza\n2. Sushi\n3. Tacos\nVote with /vote <number>"),
+    ).toEqual(POLL);
   });
 
   it("reads only what is a poll message", () => {
@@ -125,6 +129,15 @@ describe("the messages", () => {
     expect(parseVote("🗳️ vote: 2", POLL.options)).toBeNull();
     expect(parseVote("I vote: Sushi", POLL.options)).toBeNull();
     expect(parseVote("> 🗳️ vote: Sushi", POLL.options)).toBeNull();
+  });
+
+  it("reads a vote typed as /vote with the option's number or text", () => {
+    expect(parseVote("/vote 2", POLL.options)).toBe(1);
+    expect(parseVote("/VOTE   tacos", POLL.options)).toBe(2);
+    expect(parseVote("/vote 4", POLL.options)).toBeNull();
+    expect(parseVote("/vote", POLL.options)).toBeNull();
+    expect(parseVote("/voter 1", POLL.options)).toBeNull();
+    expect(parseVote("please /vote 1", POLL.options)).toBeNull();
   });
 });
 
