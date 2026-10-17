@@ -10,9 +10,13 @@ export const MAX_QUESTION_LENGTH = 200;
 const POLL_PREFIX = "📊 Poll: ";
 const CLOSED_PREFIX = "📊 Poll closed: ";
 const VOTE_PREFIX = "🗳️ vote: ";
-const VOTE_FOOTER = "Vote with /vote <number>";
+const VOTE_FOOTER = "Vote in the Poll panel, or reply /vote <number>";
+/** The footer polls were posted with before; they are still read. */
+const OLD_VOTE_FOOTER = "Vote with /vote <number>";
 /** `🗳` with or without the emoji presentation selector, then `vote:`. */
 const VOTE_PATTERN = /^🗳️?\s*vote:/iu;
+/** A vote typed by hand: `/vote` and the option's number or text. */
+const TYPED_VOTE_PATTERN = /^\/vote\s+/iu;
 const OPTION_LINE = /^(\d+)\. (.+)$/;
 
 /** The part of a chat message the tally reads. */
@@ -46,6 +50,8 @@ export interface Tally {
   readonly options: readonly OptionCount[];
   /** People whose latest vote names an option. */
   readonly voters: number;
+  /** Each voter's principal id and the index of the option of their latest vote. */
+  readonly ballots: ReadonlyMap<string, number>;
 }
 
 /** Input a person typed that the poll cannot use; the message says what to change. */
@@ -141,7 +147,13 @@ export function formatClosed(question: string, options: readonly OptionCount[]):
 /** The question and options of a poll message, or null when `text` is not one. */
 export function parsePollMessage(text: string): PollText | null {
   const lines = text.split("\n").map((line) => line.trim());
-  if (!lines[0]?.startsWith(POLL_PREFIX) || lines.at(-1) !== VOTE_FOOTER) return null;
+  const footer = lines.at(-1);
+  if (
+    !lines[0]?.startsWith(POLL_PREFIX) ||
+    (footer !== VOTE_FOOTER && footer !== OLD_VOTE_FOOTER)
+  ) {
+    return null;
+  }
   const question = oneLine(lines[0].slice(POLL_PREFIX.length));
   const optionLines = lines.slice(1, -1);
   if (!question || optionLines.length < MIN_OPTIONS || optionLines.length > MAX_OPTIONS) {
@@ -164,8 +176,13 @@ export function isClosedMessage(text: string, question: string): boolean {
   );
 }
 
-/** The index of the option a vote message names, or null when it is not a vote for one. */
+/**
+ * The index of the option a vote message names, or null when it is not a vote for one: the
+ * plugin's `🗳️ vote: <option>`, or `/vote <number or option>` as a person types it.
+ */
 export function parseVote(text: string, options: readonly string[]): number | null {
+  const typed = TYPED_VOTE_PATTERN.exec(text);
+  if (typed) return matchChoice(text.slice(typed[0].length), options);
   const match = VOTE_PATTERN.exec(text);
   if (!match) return null;
   const named = key(text.slice(match[0].length));
@@ -205,6 +222,7 @@ export function countVotes(
     closed,
     options: poll.options.map((text, i) => ({ number: i + 1, text, votes: counts[i] })),
     voters: latest.size,
+    ballots: latest,
   };
 }
 
@@ -216,6 +234,7 @@ export function noVotes(poll: PollText): Tally {
     closed: false,
     options: poll.options.map((text, i) => ({ number: i + 1, text, votes: 0 })),
     voters: 0,
+    ballots: new Map(),
   };
 }
 

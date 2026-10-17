@@ -11,7 +11,7 @@ a sandboxed frame of the app, on the web and on the desktop alike.
 
 RIM shows the plugin as one that "Runs sandboxed in this app. It cannot read your files, run
 programs, or use your RIM session. It reaches RIM only through the permissions below." It asks
-for three permissions:
+for five permissions, each with its own checkbox:
 
 - **Render UI Panels** (`ui.panel`), to show the poll and its votes in its **Poll** panel.
 - **Read your conversations** (`chat.read`): "this plugin sees the messages stored on this
@@ -20,16 +20,25 @@ for three permissions:
 - **Post as you** (`chat.write`): "this plugin sends messages in your name, except in
   encrypted DMs and groups." It posts the poll, your votes and the closing tally, and only
   when you run one of its commands.
+- **Read Encrypted Messages** (`chat.read.encrypted`) and **Send Encrypted Messages**
+  (`chat.write.encrypted`), optional: "this plugin sees their decrypted text and can send it
+  anywhere its other permissions allow" and "sends messages in your name there, encrypted like
+  your own". DMs and groups are encrypted by default, so a poll there needs both. Leave them
+  unticked and polls work in plaintext channels only: in an encrypted DM or group the plugin
+  says what to allow. The app counts every encrypted message the plugin reads in its audit.
 
-It does not ask for the encrypted chat permissions, so polls work in plaintext conversations
-only. In an encrypted DM or group the app refuses, and the plugin says the conversation is
-encrypted. It has no network access. The plugin reads messages from what your device stores:
+It has no network access, so what it reads stays in the app. The plugin reads messages from what your device stores:
 on the web that needs a browser set up as a linked device, and the plugin says so when it is
 not.
 
 ## What it does
 
-The commands run in the conversation you have open; the app offers them only while one is.
+Open **Poll** from the side rail. The panel follows the conversation you have open: with no poll
+there it shows a form for a question and 2 to 8 options, and with one it shows each option's
+votes with a **Vote** button, your own vote marked. **Refresh** counts again, **Close poll**
+(for whoever started it) posts the final tally, **Forget** drops the poll on this device and
+**New poll** starts the next one once a poll is closed. The panel runs the commands below; the
+command palette does not list the two that take arguments, Start and Vote.
 
 | Command                            | What it does                                                                                                       |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -46,14 +55,16 @@ A poll reads well without the plugin:
 1. Pizza
 2. Sushi
 3. Tacos
-Vote with /vote <number>
+Vote in the Poll panel, or reply /vote <number>
 ```
 
-A vote is a message `🗳️ vote: Sushi`, and the closing tally is `📊 Poll closed: Lunch?` with a
-line per option and its count. The count follows these rules:
+A vote from the panel is a message `🗳️ vote: Sushi`; anyone can also type `/vote 2` or
+`/vote sushi` in the conversation. The closing tally is `📊 Poll closed: Lunch?` with a line
+per option and its count. The count follows these rules:
 
 - A vote is a message after the poll message whose text starts with `🗳️ vote:` and names one
-  of the options. A message that names none is ignored and does not undo an earlier vote.
+  of the options, or starts with `/vote` and gives an option's number or text. A message that
+  names none is ignored and does not undo an earlier vote.
 - Each person has one vote: their latest.
 - Messages before the poll message, and after its author's closing tally, do not count.
 
@@ -66,10 +77,8 @@ The plugin remembers each conversation's poll in the app's plugin store for your
 that device. Someone who did not start the poll, or the same person on another device, finds
 it among the conversation's recent messages the first time they vote or ask for the results.
 
-The **Poll** panel opens next to the tool panel. It shows the poll of the conversation you last
-ran a poll command in: the question, each option's votes with a bar, the number of voters and
-whether the poll is open or closed, and it counts an open poll again every minute. The panel
-has no links: following one would navigate the panel's frame, which closes it.
+The panel counts an open poll again every minute and when you switch conversations. It has no
+links: following one would navigate the panel's frame, which closes it.
 
 ## Install
 

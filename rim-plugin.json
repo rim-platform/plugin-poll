@@ -6,13 +6,19 @@
   "author": "RIM team",
   "runtime_kind": "WebSandboxed",
   "entrypoint": "main.mjs",
-  "description": "Runs a quick poll in the open conversation. The poll and every vote are messages, so everyone with the plugin counts the same votes.",
-  "capabilities": ["ui.panel", "chat.read", "chat.write"],
+  "description": "Runs a quick poll in the open conversation from its panel. The poll and every vote are messages, so everyone with the plugin counts the same votes. In encrypted DMs and groups it works only if you also allow it to read and post in encrypted conversations.",
+  "capabilities": [
+    "ui.panel",
+    "chat.read",
+    "chat.write",
+    "chat.read.encrypted",
+    "chat.write.encrypted"
+  ],
   "commands": [
     {
       "id": "poll",
       "title": "Poll: Start",
-      "description": "Posts a poll in this conversation. One open poll per conversation.",
+      "description": "Posts a poll in this conversation. One open poll per conversation. Run it from the Poll panel.",
       "required_context": ["conversation"],
       "required_capabilities": ["chat.write"],
       "arguments": [
@@ -33,7 +39,7 @@
     {
       "id": "vote",
       "title": "Poll: Vote",
-      "description": "Posts your vote in this conversation's poll. Your latest vote counts.",
+      "description": "Posts your vote in this conversation's poll. Your latest vote counts. Run it from the Poll panel.",
       "required_context": ["conversation"],
       "required_capabilities": ["chat.read", "chat.write"],
       "arguments": [
@@ -72,7 +78,7 @@
     {
       "id": "results",
       "title": "Poll",
-      "description": "The poll of the conversation you last ran a poll command in, and its votes.",
+      "description": "The open conversation's poll: start one, vote and see the votes.",
       "slot": "tool_panel"
     }
   ]

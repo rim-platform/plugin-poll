@@ -113,6 +113,87 @@
         font-size: 11px;
         line-height: 1.4;
       }
+      .banner.error {
+        border-left-color: var(--color-rim-danger);
+      }
+      button {
+        height: 1.6rem;
+        padding: 0 0.6rem;
+        border: 1px solid var(--color-rim-line);
+        border-radius: 6px;
+        background: var(--color-rim-panel-soft);
+        color: var(--color-rim-text);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--color-rim-accent);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      button.primary {
+        border-color: var(--color-rim-accent);
+        background: var(--color-rim-accent);
+        color: var(--color-rim-void);
+      }
+      button.voted {
+        border-color: var(--color-rim-success);
+        color: var(--color-rim-success);
+        cursor: default;
+      }
+      button.ghost {
+        border-color: transparent;
+        background: none;
+        color: var(--color-rim-text-muted);
+      }
+      button.danger:hover {
+        border-color: var(--color-rim-danger);
+        color: var(--color-rim-danger);
+      }
+      .row .text {
+        flex: 1;
+      }
+      li.mine .text {
+        color: var(--color-rim-success);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0 0.75rem 0.75rem;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding: 0.75rem;
+      }
+      form label {
+        color: var(--color-rim-text-muted);
+        font-size: 12px;
+      }
+      input[type="text"] {
+        width: 100%;
+        height: 1.8rem;
+        padding: 0 0.45rem;
+        border: 1px solid var(--color-rim-line);
+        border-radius: 6px;
+        background: var(--color-rim-panel);
+        color: var(--color-rim-text);
+        font: inherit;
+      }
+      .option-input {
+        display: flex;
+        gap: 0.3rem;
+      }
+      .form-buttons {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.3rem;
+      }
     </style>
   </head>
   <body>
@@ -121,9 +202,32 @@
       <span id="status" class="status"></span>
     </header>
     <div id="notice" class="banner" role="status" hidden></div>
+    <div id="error" class="banner error" role="alert" hidden></div>
     <ol id="options"></ol>
     <div id="empty" class="empty">Waiting for the plugin…</div>
     <footer id="footer" hidden></footer>
+    <div id="actions" class="actions" hidden>
+      <button id="refresh" type="button" title="Count the votes again">Refresh</button>
+      <button id="new-poll" type="button">New poll</button>
+      <button id="close" type="button" class="danger" title="Post the final tally (asks first)">
+        Close poll
+      </button>
+      <button id="forget" type="button" class="ghost" title="Forget it on this device (asks first)">
+        Forget
+      </button>
+    </div>
+    <form id="form" hidden>
+      <label for="form-question">Question</label>
+      <input id="form-question" type="text" maxlength="200" placeholder="Lunch?" />
+      <label>Options</label>
+      <div id="form-options"></div>
+      <div class="form-buttons">
+        <button id="add-option" type="button" class="ghost">+ Add option</button>
+        <span style="flex: 1"></span>
+        <button id="cancel" type="button" class="ghost">Cancel</button>
+        <button id="post" type="submit" class="primary">Post poll</button>
+      </div>
+    </form>
     <script src="app.js"></script>
   </body>
 </html>

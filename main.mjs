@@ -841,8 +841,10 @@ var MAX_QUESTION_LENGTH = 200;
 var POLL_PREFIX = "\u{1F4CA} Poll: ";
 var CLOSED_PREFIX = "\u{1F4CA} Poll closed: ";
 var VOTE_PREFIX = "\u{1F5F3}\uFE0F vote: ";
-var VOTE_FOOTER = "Vote with /vote <number>";
+var VOTE_FOOTER = "Vote in the Poll panel, or reply /vote <number>";
+var OLD_VOTE_FOOTER = "Vote with /vote <number>";
 var VOTE_PATTERN = /^🗳️?\s*vote:/iu;
+var TYPED_VOTE_PATTERN = /^\/vote\s+/iu;
 var OPTION_LINE = /^(\d+)\. (.+)$/;
 var PollInputError = class extends Error {
   constructor(message) {
@@ -915,7 +917,10 @@ function formatClosed(question, options) {
 }
 function parsePollMessage(text) {
   const lines = text.split("\n").map((line) => line.trim());
-  if (!lines[0]?.startsWith(POLL_PREFIX) || lines.at(-1) !== VOTE_FOOTER) return null;
+  const footer = lines.at(-1);
+  if (!lines[0]?.startsWith(POLL_PREFIX) || footer !== VOTE_FOOTER && footer !== OLD_VOTE_FOOTER) {
+    return null;
+  }
   const question = oneLine(lines[0].slice(POLL_PREFIX.length));
   const optionLines = lines.slice(1, -1);
   if (!question || optionLines.length < MIN_OPTIONS || optionLines.length > MAX_OPTIONS) {
@@ -934,6 +939,8 @@ function isClosedMessage(text, question) {
   return first.startsWith(CLOSED_PREFIX) && key(first.slice(CLOSED_PREFIX.length)) === key(question);
 }
 function parseVote(text, options) {
+  const typed = TYPED_VOTE_PATTERN.exec(text);
+  if (typed) return matchChoice(text.slice(typed[0].length), options);
   const match = VOTE_PATTERN.exec(text);
   if (!match) return null;
   const named = key(text.slice(match[0].length));
@@ -962,7 +969,8 @@ function countVotes(messages, pollMessageId, poll) {
     author,
     closed,
     options: poll.options.map((text, i) => ({ number: i + 1, text, votes: counts[i] })),
-    voters: latest.size
+    voters: latest.size,
+    ballots: latest
   };
 }
 function noVotes(poll) {
@@ -971,7 +979,8 @@ function noVotes(poll) {
     author: null,
     closed: false,
     options: poll.options.map((text, i) => ({ number: i + 1, text, votes: 0 })),
-    voters: 0
+    voters: 0,
+    ballots: /* @__PURE__ */ new Map()
   };
 }
 function summarize(question, tally) {
@@ -990,20 +999,26 @@ var DISCOVERY_PAGES = 3;
 var SCAN_MARGIN_MS = 60 * 60 * 1e3;
 var STORAGE_PREFIX = "poll.";
 var SAFE_KEY = /^[A-Za-z0-9._-]{1,120}$/;
-var ENCRYPTED_TEXT = "This conversation is end-to-end encrypted. Poll works in plaintext conversations only: it does not ask to read or post in encrypted DMs and groups.";
+var ENCRYPTED_TEXT = "This conversation is end-to-end encrypted. To run polls here, allow Poll to read and post in encrypted conversations in Settings \u2192 Plugins.";
+var NOT_CACHED_TEXT = "This conversation is not fully stored on this device yet. Try again shortly.";
 var NOT_FOUND_TEXT = "The poll message is not on this device: it may not be stored here yet, or it was deleted. Try again shortly, or forget the poll with Poll: Clear.";
 function isRecord2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function reasonOf(error) {
+  return error instanceof PluginError && isRecord2(error.data) ? error.data.reason : void 0;
 }
 function explainChatError(error) {
   if (!(error instanceof HostRequestError)) return error;
   const reason = isRecord2(error.data) ? error.data.reason : void 0;
   switch (error.code) {
-    case ErrorCode.CAPABILITY_DENIED:
+    case ErrorCode.CAPABILITY_DENIED: {
+      const encrypted = /\.encrypted\b/u.test(error.message);
       return new PluginError(
-        /\.encrypted\b/u.test(error.message) ? ENCRYPTED_TEXT : "Poll needs the permissions to read and post in your conversations. Allow them in Settings \u2192 Plugins.",
-        { code: ErrorCode.CAPABILITY_DENIED }
+        encrypted ? ENCRYPTED_TEXT : "Poll needs the permissions to read and post in your conversations. Allow them in Settings \u2192 Plugins.",
+        { code: ErrorCode.CAPABILITY_DENIED, data: { reason: encrypted ? "encrypted" : "denied" } }
       );
+    }
     case ErrorCode.RATE_LIMITED:
       return new PluginError("Poll made too many chat calls this minute. Try again in a minute.", {
         code: ErrorCode.RATE_LIMITED
@@ -1011,15 +1026,19 @@ function explainChatError(error) {
     case ErrorCode.INTERNAL_ERROR:
       if (reason === "noCache") {
         return new PluginError(
-          "This browser keeps no messages, so Poll cannot read or post here. Set it up as a linked device, or use the desktop app."
+          "This browser keeps no messages, so Poll cannot read or post here. Set it up as a linked device, or use the desktop app.",
+          { data: { reason } }
         );
       }
       if (reason === "notCached") {
+        return new PluginError(NOT_CACHED_TEXT, { data: { reason } });
+      }
+      if (reason === "noEncryption") {
         return new PluginError(
-          "This conversation is not fully stored on this device yet. Try again shortly."
+          "This device cannot post in encrypted conversations. Use the desktop app, or a browser set up as a linked device.",
+          { data: { reason } }
         );
       }
-      if (reason === "noEncryption") return new PluginError(ENCRYPTED_TEXT);
       break;
   }
   const detail = error.message.replace(/^\S+ failed \(-?\d+\): /u, "");
@@ -1046,11 +1065,20 @@ function storageKey(conversationId) {
 }
 function readStoredPoll(value, conversationId) {
   if (!isRecord2(value) || value.conversationId !== conversationId) return null;
-  const { messageId, threadId, question, options, status, createdAt } = value;
+  const { messageId, threadId, question, options, status, createdAt, startedHere } = value;
   if (typeof messageId !== "string" || threadId !== null && typeof threadId !== "string" || typeof question !== "string" || !Array.isArray(options) || !options.every((o) => typeof o === "string") || status !== "open" && status !== "closed" || typeof createdAt !== "string") {
     return null;
   }
-  return { conversationId, messageId, threadId, question, options, status, createdAt };
+  return {
+    conversationId,
+    messageId,
+    threadId,
+    question,
+    options,
+    status,
+    createdAt,
+    ...startedHere === true ? { startedHere } : {}
+  };
 }
 function commandContext(args) {
   const conversationId = args.conversation_id;
@@ -1115,6 +1143,8 @@ function createPlugin(options = {}) {
     }
   }
   async function showPoll(host, poll, tally, notice = null) {
+    const me = host.principal?.principalId;
+    const ballot = me === void 0 ? void 0 : tally.ballots.get(me);
     await publish(host, {
       inConversation: true,
       notice,
@@ -1123,7 +1153,10 @@ function createPlugin(options = {}) {
         status: poll.status,
         options: [...tally.options],
         voters: tally.voters,
-        counted: tally.found
+        counted: tally.found,
+        myVote: ballot === void 0 ? null : ballot + 1,
+        // Until the poll message is counted, the device that posted it knows who started it.
+        mine: tally.author ? me !== void 0 && tally.author.principalId === me : poll.startedHere === true
       }
     });
   }
@@ -1237,7 +1270,8 @@ function createPlugin(options = {}) {
       question,
       options: options2,
       status: "open",
-      createdAt: new Date(now()).toISOString()
+      createdAt: new Date(now()).toISOString(),
+      startedHere: true
     };
     await save(host, poll);
     const tally = noVotes(poll);
@@ -1254,7 +1288,11 @@ function createPlugin(options = {}) {
       await publish(host, { inConversation: true, poll: null, notice: null });
       throw new PluginError("There is no open poll in this conversation. Start one with /poll.");
     }
-    const counted = await count(host, resolved.poll, resolved.messages);
+    const counted = await count(host, resolved.poll, resolved.messages).catch((error) => {
+      if (reasonOf(error) !== "notCached" || resolved.poll === null) throw error;
+      const poll2 = resolved.poll;
+      return { poll: poll2, tally: { ...noVotes(poll2), found: false }, messages: [] };
+    });
     const { poll, tally } = counted;
     if (poll.status === "closed") {
       await showPoll(host, poll, tally);
@@ -1287,18 +1325,31 @@ function createPlugin(options = {}) {
     const { conversationId } = commandContext(args);
     signedIn(context);
     current = conversationId;
-    const resolved = await resolve(host, conversationId);
-    if (!resolved.poll) {
-      await publish(host, { inConversation: true, poll: null, notice: null });
-      return { payload: null, message: "There is no poll in this conversation." };
+    let known = null;
+    try {
+      const resolved = await resolve(host, conversationId);
+      known = resolved.poll;
+      if (!resolved.poll) {
+        await publish(host, { inConversation: true, poll: null, notice: null });
+        return { payload: null, message: "There is no poll in this conversation." };
+      }
+      const { poll, tally } = await count(host, resolved.poll, resolved.messages);
+      if (!tally.found) {
+        await showPoll(host, poll, tally, NOT_FOUND_TEXT);
+        throw new PluginError(NOT_FOUND_TEXT);
+      }
+      await showPoll(host, poll, tally);
+      return { payload: payloadOf(poll, tally), message: summarize(poll.question, tally) };
+    } catch (error) {
+      const explained = explainChatError(error);
+      const notice = explained instanceof Error ? explained.message : String(explained);
+      if (known && reasonOf(explained) === "notCached") {
+        await showPoll(host, known, { ...noVotes(known), found: false }, notice);
+      } else if (!(explained instanceof PluginError && explained.message === NOT_FOUND_TEXT)) {
+        await publish(host, { inConversation: true, poll: null, notice });
+      }
+      throw explained;
     }
-    const { poll, tally } = await count(host, resolved.poll, resolved.messages);
-    if (!tally.found) {
-      await showPoll(host, poll, tally, NOT_FOUND_TEXT);
-      throw new PluginError(NOT_FOUND_TEXT);
-    }
-    await showPoll(host, poll, tally);
-    return { payload: payloadOf(poll, tally), message: summarize(poll.question, tally) };
   }
   async function close(context) {
     const { host, args } = context;
