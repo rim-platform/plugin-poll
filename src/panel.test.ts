@@ -114,6 +114,17 @@ describe("Poll panel", () => {
     expect(document.querySelector("a")).toBeNull();
   });
 
+  it("keeps a hidden section hidden although its styles give it a display", () => {
+    // jsdom does not cascade author styles over `hidden`, so the rule itself is checked.
+    const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]);
+    const hiddenRule = rules.find(
+      (rule): rule is CSSStyleRule =>
+        rule instanceof CSSStyleRule && rule.selectorText === "[hidden]",
+    );
+    expect(hiddenRule?.style.getPropertyValue("display")).toBe("none");
+    expect(hiddenRule?.style.getPropertyPriority("display")).toBe("important");
+  });
+
   it("shows a closed poll without votes to cast, and one whose votes are not counted yet", () => {
     fromHost({
       type: "panel.state_update",
