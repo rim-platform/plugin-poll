@@ -1,6 +1,6 @@
 {
   "name": "rim-plugin-poll",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "RIM plugin that runs quick polls in a conversation, with votes as messages",
   "license": "Apache-2.0",
