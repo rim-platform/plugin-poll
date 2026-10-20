@@ -25,9 +25,9 @@ the version in `rim-plugin.json` and in `package.json`.
   your vote marked, and **Refresh**, **Close poll**, **Forget** and **New poll**. It follows the
   conversation you have open.
 - Votes typed as `/vote <number>` or `/vote <option>` in the conversation count.
-- Optional permissions **Read Encrypted Messages** (`chat.read.encrypted`) and **Send
-  Encrypted Messages** (`chat.write.encrypted`), so polls work in encrypted DMs and groups when
-  you allow them. Installs ask again for the new permissions.
+- Optional permissions **Read your encrypted DMs and groups** (`chat.read.encrypted`) and
+  **Post as you in your encrypted DMs and groups** (`chat.write.encrypted`), so polls work in
+  encrypted DMs and groups when you allow them. Installs ask again for the new permissions.
 
 ### Fixed
 
