@@ -23,9 +23,9 @@ for five permissions, each with its own checkbox:
 - **Read your encrypted DMs and groups** (`chat.read.encrypted`) and **Post as you in your
   encrypted DMs and groups** (`chat.write.encrypted`), optional: "this plugin sees their
   decrypted text and can send it anywhere its other permissions allow" and "this plugin sends
-  messages in your name there, encrypted like your own". DMs and groups are encrypted by default, so a poll there needs both. Leave them
-  unticked and polls work in plaintext channels only: in an encrypted DM or group the plugin
-  says what to allow. The app counts every encrypted message the plugin reads in its audit.
+  messages in your name there, encrypted like your own". DMs and groups are encrypted by
+  default, so a poll there needs both. Leave them unticked and polls work in plaintext channels
+  only: in an encrypted DM or group the plugin says what to allow. The app counts every encrypted message the plugin reads in its audit.
 
 It has no network access, so what it reads stays in the app. The plugin reads messages from what your device stores:
 on the web that needs a browser set up as a linked device, and the plugin says so when it is
