@@ -20,12 +20,12 @@ for five permissions, each with its own checkbox:
 - **Post as you** (`chat.write`): "this plugin sends messages in your name, except in
   encrypted DMs and groups." It posts the poll, your votes and the closing tally, and only
   when you run one of its commands.
-- **Read Encrypted Messages** (`chat.read.encrypted`) and **Send Encrypted Messages**
-  (`chat.write.encrypted`), optional: "this plugin sees their decrypted text and can send it
-  anywhere its other permissions allow" and "sends messages in your name there, encrypted like
-  your own". DMs and groups are encrypted by default, so a poll there needs both. Leave them
-  unticked and polls work in plaintext channels only: in an encrypted DM or group the plugin
-  says what to allow. The app counts every encrypted message the plugin reads in its audit.
+- **Read your encrypted DMs and groups** (`chat.read.encrypted`) and **Post as you in your
+  encrypted DMs and groups** (`chat.write.encrypted`), optional: "this plugin sees their
+  decrypted text and can send it anywhere its other permissions allow" and "this plugin sends
+  messages in your name there, encrypted like your own". DMs and groups are encrypted by
+  default, so a poll there needs both. Leave them unticked and polls work in plaintext channels
+  only: in an encrypted DM or group the plugin says what to allow. The app counts every encrypted message the plugin reads in its audit.
 
 It has no network access, so what it reads stays in the app. The plugin reads messages from what your device stores:
 on the web that needs a browser set up as a linked device, and the plugin says so when it is
@@ -33,7 +33,8 @@ not.
 
 ## What it does
 
-Open **Poll** from the side rail. The panel follows the conversation you have open: with no poll
+Open the panel with **Poll** in the side rail's **Plugins** menu, or with **Open Poll** in the
+command palette. The panel follows the conversation you have open: with no poll
 there it shows a form for a question and 2 to 8 options, and with one it shows each option's
 votes with a **Vote** button, your own vote marked. **Refresh** counts again, **Close poll**
 (for whoever started it) posts the final tally, **Forget** drops the poll on this device and
@@ -82,8 +83,9 @@ links: following one would navigate the panel's frame, which closes it.
 
 ## Install
 
-Each way ends the same: RIM shows the plugin and its permissions, you approve them, enable the
-plugin and open **Poll** from the side rail.
+Each way ends the same: RIM shows the plugin and its permissions, **Approve and turn on**
+grants the ones you leave ticked and starts the plugin, and **Poll** in the side rail's
+**Plugins** menu opens its panel.
 
 - **Install from git URL** (desktop): Settings → Plugins → Install from git URL, with
   `https://github.com/rim-platform/plugin-poll.git`. The desktop takes
@@ -93,9 +95,9 @@ plugin and open **Poll** from the side rail.
   link a [release](https://github.com/rim-platform/plugin-poll/releases) gives:
   `https://github.com/rim-platform/plugin-poll/releases/download/v<version>/chat.rim.poll-<version>.rimbundle#sha256=<hash>`.
   The app checks that the bundle hashes to the value after `#sha256=` before it installs
-  anything. Install from link with a GitHub release asset works on the desktop
-  once it fetches links natively (a rim-ui issue); in the browser, install from a workspace
-  registry or from a host that sends CORS headers.
+  anything. The desktop app fetches the link itself, so a release link installs there. GitHub
+  serves release assets without CORS headers, so the web app cannot fetch them: in the
+  browser, install from a workspace registry or from a host that sends CORS headers.
 - **Workspace registry**: when a workspace recommends or requires the plugin, the command
   palette's "Workspace plugins" offers it with its publisher's signature, and a required one
   is offered when the workspace opens. The app verifies the signed statement before it

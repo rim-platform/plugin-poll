@@ -19,15 +19,17 @@ the version in `rim-plugin.json` and in `package.json`.
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-20
+
 ### Added
 
 - The **Poll** panel runs the poll: a form to start one, a **Vote** button on each option with
   your vote marked, and **Refresh**, **Close poll**, **Forget** and **New poll**. It follows the
   conversation you have open.
 - Votes typed as `/vote <number>` or `/vote <option>` in the conversation count.
-- Optional permissions **Read Encrypted Messages** (`chat.read.encrypted`) and **Send
-  Encrypted Messages** (`chat.write.encrypted`), so polls work in encrypted DMs and groups when
-  you allow them. Installs ask again for the new permissions.
+- Optional permissions **Read your encrypted DMs and groups** (`chat.read.encrypted`) and
+  **Post as you in your encrypted DMs and groups** (`chat.write.encrypted`), so polls work in
+  encrypted DMs and groups when you allow them. Installs ask again for the new permissions.
 
 ### Fixed
 
@@ -56,5 +58,6 @@ the version in `rim-plugin.json` and in `package.json`.
   `panels/`), so the desktop installs it from its git URL; each release attaches a
   `.rimbundle` for Install from link.
 
-[Unreleased]: https://github.com/rim-platform/plugin-poll/compare/v0.0.1...master
+[Unreleased]: https://github.com/rim-platform/plugin-poll/compare/v0.0.2...master
+[0.0.2]: https://github.com/rim-platform/plugin-poll/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/rim-platform/plugin-poll/releases/tag/v0.0.1
