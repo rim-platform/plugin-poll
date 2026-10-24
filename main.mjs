@@ -26,7 +26,9 @@ var Method = {
   principalChanged: "rim.principal.changed",
   principalsRemapped: "rim.principals.remapped",
   commandExecute: "rim.command.execute",
-  log: "rim.log"
+  log: "rim.log",
+  settingsGet: "rim.settings.get",
+  settingsChanged: "rim.settings.changed"
 };
 
 // node_modules/@rim-platform/plugin-sdk/dist/errors.js
@@ -537,6 +539,8 @@ var Session = class {
       this.onPrincipalChanged(params);
     } else if (method === Method.principalsRemapped) {
       this.onPrincipalsRemapped(params);
+    } else if (method === Method.settingsChanged) {
+      this.onSettingsChanged(params);
     }
   }
   onResponse(id, frame) {
@@ -630,6 +634,15 @@ var Session = class {
       return;
     void this.callHook("onPrincipalsRemapped", () => this.definition.onPrincipalsRemapped?.(mappings, this.host));
   }
+  onSettingsChanged(params) {
+    const values = isRecord(params) ? params.values : void 0;
+    if (!isRecord(values)) {
+      this.log("warn", "ignored rim.settings.changed: values must be an object");
+      return;
+    }
+    const settings = Object.freeze({ ...values });
+    void this.callHook("onSettingsChanged", () => this.definition.onSettingsChanged?.(settings, this.host));
+  }
   request(method, params) {
     if (this.closed || this.stopping || !this.ready) {
       const message = this.ready ? "the connection to the host is closing" : "the handshake has not finished";
@@ -691,6 +704,18 @@ var Session = class {
         },
         set: async (key2, value) => {
           await session.request(STORAGE_SET_METHOD, { key: key2, value });
+        }
+      }),
+      settings: Object.freeze({
+        get: async () => {
+          const result = await session.request(Method.settingsGet, void 0);
+          if (!isRecord(result) || !isRecord(result.values)) {
+            throw new HostRequestError(Method.settingsGet, {
+              code: ErrorCode.INTERNAL_ERROR,
+              message: "the host answered without a values object"
+            });
+          }
+          return Object.freeze({ ...result.values });
         }
       }),
       chat: Object.freeze({
