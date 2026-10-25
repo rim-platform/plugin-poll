@@ -248,6 +248,19 @@ describe("Poll panel", () => {
     expect([...inputs()].map((i) => i.value)).toEqual(["", ""]);
   });
 
+  it("posts with Enter in a field and has no form for the sandbox to refuse", () => {
+    expect(document.querySelector("form")).toBeNull();
+    fromHost({ type: "panel.state_update", state: { ...STATE, poll: null } });
+    (document.getElementById("form-question") as HTMLInputElement).value = "Lunch?";
+    const inputs = document.querySelectorAll<HTMLInputElement>("#form-options input");
+    inputs[0].value = "Pizza";
+    inputs[1].value = "Sushi";
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    inputs[1].dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(commands()).toEqual([["poll", { question: "Lunch?", options: "Pizza | Sushi" }]]);
+  });
+
   it("starts the next poll from a closed one, and shows a failure the notice does not say", () => {
     fromHost({
       type: "panel.state_update",

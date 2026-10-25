@@ -316,7 +316,9 @@
   els.addOption.addEventListener("click", function () {
     addOptionInput("").focus();
   });
-  els.form.addEventListener("submit", function (event) {
+  els.post.addEventListener("click", submitForm);
+  els.form.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter" || event.isComposing || event.target.tagName !== "INPUT") return;
     event.preventDefault();
     submitForm();
   });

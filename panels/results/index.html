@@ -169,13 +169,13 @@
         gap: 0.4rem;
         padding: 0 0.75rem 0.75rem;
       }
-      form {
+      #form {
         display: flex;
         flex-direction: column;
         gap: 0.4rem;
         padding: 0.75rem;
       }
-      form label {
+      #form label {
         color: var(--color-rim-text-muted);
         font-size: 12px;
       }
@@ -220,7 +220,9 @@
         Forget
       </button>
     </div>
-    <form id="form" hidden>
+    <!-- Not a <form>: the plugin frame's sandbox refuses form submission before its submit
+         event fires, so the post button and Enter post the poll themselves. -->
+    <div id="form" role="form" aria-label="New poll" hidden>
       <label for="form-question">Question</label>
       <input id="form-question" type="text" maxlength="200" placeholder="Lunch?" />
       <label>Options</label>
@@ -229,9 +231,9 @@
         <button id="add-option" type="button" class="ghost">+ Add option</button>
         <span style="flex: 1"></span>
         <button id="cancel" type="button" class="ghost">Cancel</button>
-        <button id="post" type="submit" class="primary">Post poll</button>
+        <button id="post" type="button" class="primary">Post poll</button>
       </div>
-    </form>
+    </div>
     <script src="app.js"></script>
   </body>
 </html>
