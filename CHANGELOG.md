@@ -21,6 +21,8 @@ the version in `rim-plugin.json` and in `package.json`.
 
 ### Fixed
 
+- **Post poll** works: the panel's sandbox refuses form submission, so the button and Enter
+  did nothing. They now post the poll directly.
 - Document browser installation of pinned release links through an updated RIM server.
 
 ## [0.0.2] - 2026-10-20
