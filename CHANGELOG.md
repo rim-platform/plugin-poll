@@ -19,11 +19,17 @@ the version in `rim-plugin.json` and in `package.json`.
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-25
+
+### Changed
+
+- The README says how to install a release link in the browser: the browser fetches it
+  through your RIM server, which must be recent enough and have `plugin_link_fetch` enabled.
+
 ### Fixed
 
 - **Post poll** works: the panel's sandbox refuses form submission, so the button and Enter
   did nothing. They now post the poll directly.
-- Document browser installation of pinned release links through an updated RIM server.
 
 ## [0.0.2] - 2026-10-20
 
@@ -64,6 +70,7 @@ the version in `rim-plugin.json` and in `package.json`.
   `panels/`), so the desktop installs it from its git URL; each release attaches a
   `.rimbundle` for Install from link.
 
-[Unreleased]: https://github.com/rim-platform/plugin-poll/compare/v0.0.2...master
+[Unreleased]: https://github.com/rim-platform/plugin-poll/compare/v0.0.3...master
+[0.0.3]: https://github.com/rim-platform/plugin-poll/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/rim-platform/plugin-poll/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/rim-platform/plugin-poll/releases/tag/v0.0.1

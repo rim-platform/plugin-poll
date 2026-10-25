@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "plugin_id": "chat.rim.poll",
   "display_name": "Poll",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "author": "RIM team",
   "runtime_kind": "WebSandboxed",
   "entrypoint": "main.mjs",
